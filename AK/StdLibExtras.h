@@ -124,7 +124,7 @@ constexpr T ceil_div(T a, U b)
 {
     static_assert(sizeof(T) == sizeof(U));
     T result = a / b;
-    if ((a % b) != 0)
+    if ((a % b) != 0 && (a > 0) == (b > 0))
         ++result;
     return result;
 }
@@ -143,7 +143,7 @@ template<typename T, typename U = T>
 constexpr T exchange(T& slot, U&& value)
 {
     T old_value = move(slot);
-    slot = forward<U>(value);
+    slot = AK::forward<U>(value);
     return old_value;
 }
 

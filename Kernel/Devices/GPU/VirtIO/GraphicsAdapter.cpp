@@ -9,7 +9,7 @@
 #include <Kernel/Bus/PCI/API.h>
 #include <Kernel/Bus/PCI/IDs.h>
 #include <Kernel/Bus/VirtIO/Transport/PCIe/TransportLink.h>
-#include <Kernel/Devices/DeviceManagement.h>
+#include <Kernel/Devices/Device.h>
 #include <Kernel/Devices/GPU/Console/GenericFramebufferConsole.h>
 #include <Kernel/Devices/GPU/Management.h>
 #include <Kernel/Devices/GPU/VirtIO/Console.h>
@@ -28,7 +28,7 @@ ErrorOr<bool> VirtIOGraphicsAdapter::probe(PCI::DeviceIdentifier const& device_i
     return device_identifier.hardware_id().vendor_id == PCI::VendorID::VirtIO;
 }
 
-ErrorOr<NonnullLockRefPtr<GenericGraphicsAdapter>> VirtIOGraphicsAdapter::create(PCI::DeviceIdentifier const& device_identifier)
+ErrorOr<NonnullLockRefPtr<GPUDevice>> VirtIOGraphicsAdapter::create(PCI::DeviceIdentifier const& device_identifier)
 {
     // Setup memory transfer region
     auto scratch_space_region = TRY(MM.allocate_contiguous_kernel_region(
@@ -49,7 +49,7 @@ ErrorOr<void> VirtIOGraphicsAdapter::initialize_adapter()
     VERIFY(m_num_scanouts <= VIRTIO_GPU_MAX_SCANOUTS);
     TRY(initialize_3d_device());
     for (size_t index = 0; index < m_num_scanouts; index++) {
-        auto display_connector = VirtIODisplayConnector::must_create(*this, index);
+        auto display_connector = TRY(VirtIODisplayConnector::create(*this, index));
         m_scanouts[index].display_connector = display_connector;
         TRY(query_and_set_edid(index, *display_connector));
         display_connector->set_safe_mode_setting_after_initialization({});
@@ -305,7 +305,7 @@ ErrorOr<void> VirtIOGraphicsAdapter::ensure_backing_storage(Graphics::VirtIOGPU:
 
     auto writer = create_scratchspace_writer();
     auto& request = writer.append_structure<Graphics::VirtIOGPU::Protocol::ResourceAttachBacking>();
-    const size_t header_block_size = sizeof(request) + num_mem_regions * sizeof(Graphics::VirtIOGPU::Protocol::MemoryEntry);
+    size_t const header_block_size = sizeof(request) + num_mem_regions * sizeof(Graphics::VirtIOGPU::Protocol::MemoryEntry);
 
     populate_virtio_gpu_request_header(request.header, Graphics::VirtIOGPU::Protocol::CommandType::VIRTIO_GPU_CMD_RESOURCE_ATTACH_BACKING, 0);
     request.resource_id = resource_id.value();
@@ -465,7 +465,7 @@ ErrorOr<void> VirtIOGraphicsAdapter::initialize_3d_device()
 {
     if (m_has_virgl_support) {
         SpinlockLocker locker(m_operation_lock);
-        m_3d_device = TRY(VirtIOGPU3DDevice::try_create(*this));
+        m_3d_device = TRY(VirtIOGPU3DDevice::create(*this));
     }
     return {};
 }
