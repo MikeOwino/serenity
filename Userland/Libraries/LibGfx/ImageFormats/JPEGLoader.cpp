@@ -965,7 +965,7 @@ static ErrorOr<void> read_start_of_scan(JPEGStream& stream, JPEGLoadingContext& 
         StringBuilder builder;
         TRY(builder.try_append("Components in scan: "sv));
         for (auto const& scan_component : current_scan.components) {
-            TRY(builder.try_append(TRY(String::number(scan_component.component.id))));
+            TRY(builder.try_append(String::number(scan_component.component.id)));
             TRY(builder.try_append(' '));
         }
         dbgln(builder.string_view());
@@ -1331,6 +1331,11 @@ static ErrorOr<void> read_start_of_frame(JPEGStream& stream, JPEGLoadingContext&
 
         dbgln_if(JPEG_DEBUG, "Component subsampling: {}, {}", component.sampling_factors.horizontal, component.sampling_factors.vertical);
 
+        if (component.sampling_factors.horizontal == 0 || component.sampling_factors.horizontal > 4
+            || component.sampling_factors.vertical == 0 || component.sampling_factors.vertical > 4) {
+            return Error::from_string_literal("Invalid subsampling factor values");
+        }
+
         if (i == 0) {
             // By convention, downsampling is applied only on chroma components. So we should
             //  hope to see the maximum sampling factor in the luma component.
@@ -1432,6 +1437,8 @@ static void dequantize(JPEGLoadingContext& context, Vector<Macroblock>& macroblo
 
 static void inverse_dct_8x8(i16* block_component)
 {
+    // Does a 2-D IDCT by doing two 1-D IDCTs as described in https://unix4lyfe.org/dct/
+    // The 1-D DCT idea is described at https://unix4lyfe.org/dct-1d/, read aan.cc from bottom to top.
     static float const m0 = 2.0f * AK::cos(1.0f / 16.0f * 2.0f * AK::Pi<float>);
     static float const m1 = 2.0f * AK::cos(2.0f / 16.0f * 2.0f * AK::Pi<float>);
     static float const m3 = 2.0f * AK::cos(2.0f / 16.0f * 2.0f * AK::Pi<float>);

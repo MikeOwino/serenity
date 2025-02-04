@@ -33,7 +33,7 @@ static constexpr size_t KMALLOC_DEFAULT_ALIGNMENT = 16;
 __attribute__((section(".heap"))) static u8 initial_kmalloc_memory[INITIAL_KMALLOC_MEMORY_SIZE];
 
 namespace std {
-const nothrow_t nothrow;
+nothrow_t const nothrow;
 }
 
 // FIXME: Figure out whether this can be MemoryManager.
@@ -452,7 +452,7 @@ static void* kmalloc_impl(size_t size, size_t alignment, CallerWillInitializeMem
     SpinlockLocker lock(s_lock);
     ++g_kmalloc_call_count;
 
-    if (g_dump_kmalloc_stacks && Kernel::g_kernel_symbols_available) {
+    if (g_dump_kmalloc_stacks && Kernel::g_kernel_symbols_available.was_set()) {
         dbgln("kmalloc({})", size);
         Kernel::dump_backtrace();
     }

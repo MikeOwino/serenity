@@ -227,6 +227,7 @@ void DebugSession::run(DesiredInitialDebugeeState initial_debugee_state, Callbac
 #    error Unknown architecture
 #endif
 
+                // FIXME: Use AK::unwind_stack_from_frame_pointer
                 do {
                     if (current_ebp == required_ebp) {
                         found_ebp = true;
@@ -251,11 +252,11 @@ void DebugSession::run(DesiredInitialDebugeeState initial_debugee_state, Callbac
         Optional<BreakPoint> current_breakpoint;
 
         if (state == State::FreeRun || state == State::Syscall) {
-            current_breakpoint = m_breakpoints.get(current_instruction - 1);
+            current_breakpoint = m_breakpoints.get(current_instruction - 1).copy();
             if (current_breakpoint.has_value())
                 state = State::FreeRun;
         } else {
-            current_breakpoint = m_breakpoints.get(current_instruction);
+            current_breakpoint = m_breakpoints.get(current_instruction).copy();
         }
 
         if (current_breakpoint.has_value()) {

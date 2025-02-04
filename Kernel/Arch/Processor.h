@@ -8,6 +8,7 @@
 #pragma once
 
 #include <AK/Function.h>
+#include <AK/SetOnce.h>
 #include <Kernel/Arch/CPUID.h>
 #include <Kernel/Arch/DeferredCallEntry.h>
 #include <Kernel/Arch/DeferredCallPool.h>
@@ -135,8 +136,6 @@ public:
     ALWAYS_INLINE static void disable_interrupts();
     ALWAYS_INLINE static FlatPtr current_in_irq();
 
-    ALWAYS_INLINE static bool is_kernel_mode();
-
     ALWAYS_INLINE void set_idle_thread(Thread& idle_thread)
     {
         m_idle_thread = &idle_thread;
@@ -144,7 +143,7 @@ public:
     void idle_begin() const;
     void idle_end() const;
     u64 time_spent_idle() const;
-    ALWAYS_INLINE static u64 read_cpu_counter();
+    ALWAYS_INLINE static Optional<u64> read_cycle_count();
 
     void check_invoke_scheduler();
     void invoke_scheduler_async() { m_invoke_scheduler_async = true; }
@@ -164,8 +163,6 @@ public:
     ALWAYS_INLINE static FPUState const& clean_fpu_state() { return s_clean_fpu_state; }
 
     static void deferred_call_queue(Function<void()> callback);
-
-    static void set_thread_specific_data(VirtualAddress thread_specific_data);
 
     [[noreturn]] void initialize_context_switching(Thread& initial_thread);
     NEVER_INLINE void switch_context(Thread*& from_thread, Thread*& to_thread);
@@ -192,12 +189,13 @@ private:
     // FIXME: On aarch64, once there is code in place to differentiate IRQs from synchronous exceptions (syscalls),
     //        this member should be incremented. Also this member shouldn't be a FlatPtr.
     FlatPtr m_in_irq { 0 };
-    volatile u32 m_in_critical;
+    u32 volatile m_in_critical;
     // NOTE: Since these variables are accessed with atomic magic on x86 (through GP with a single load instruction),
     //       they need to be FlatPtrs or everything becomes highly unsound and breaks. They are actually just booleans.
     FlatPtr m_in_scheduler;
     FlatPtr m_invoke_scheduler_async;
-    FlatPtr m_scheduler_initialized;
+
+    SetOnce m_scheduler_initialized;
 
     DeferredCallPool m_deferred_call_pool {};
 };

@@ -7,7 +7,7 @@
 #include <AK/BitStream.h>
 #include <AK/Hex.h>
 #include <LibCompress/Deflate.h>
-#include <LibCompress/LZWDecoder.h>
+#include <LibCompress/Lzw.h>
 #include <LibCompress/PackBitsDecoder.h>
 #include <LibGfx/ImageFormats/CCITTDecoder.h>
 #include <LibGfx/ImageFormats/JBIG2Loader.h>
@@ -262,7 +262,7 @@ PDFErrorOr<ByteBuffer> Filter::decode_lzw(ReadonlyBytes bytes, RefPtr<DictObject
     if (decode_parms && decode_parms->contains(CommonNames::EarlyChange))
         early_change = decode_parms->get_value(CommonNames::EarlyChange).get<int>();
 
-    auto decoded = TRY(Compress::LZWDecoder<BigEndianInputBitStream>::decode_all(bytes, 8, -early_change));
+    auto decoded = TRY(Compress::LzwDecompressor<BigEndianInputBitStream>::decompress_all(bytes, 8, -early_change));
     return handle_lzw_and_flate_parameters(move(decoded), decode_parms);
 }
 
@@ -364,10 +364,10 @@ PDFErrorOr<ByteBuffer> Filter::decode_jbig2(Document* document, ReadonlyBytes by
 
 PDFErrorOr<ByteBuffer> Filter::decode_dct(ReadonlyBytes bytes)
 {
-    if (!Gfx::JPEGImageDecoderPlugin::sniff({ bytes.data(), bytes.size() }))
+    if (!Gfx::JPEGImageDecoderPlugin::sniff(bytes))
         return AK::Error::from_string_literal("Not a JPEG image!");
 
-    auto decoder = TRY(Gfx::JPEGImageDecoderPlugin::create_with_options({ bytes.data(), bytes.size() }, { .cmyk = Gfx::JPEGDecoderOptions::CMYK::PDF }));
+    auto decoder = TRY(Gfx::JPEGImageDecoderPlugin::create_with_options(bytes, { .cmyk = Gfx::JPEGDecoderOptions::CMYK::PDF }));
     auto internal_format = decoder->natural_frame_format();
 
     if (internal_format == Gfx::NaturalFrameFormat::CMYK) {
